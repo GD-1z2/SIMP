@@ -14,16 +14,17 @@ const vec4 CLR_ACCENT = {.4f, .7f, 1.f, 1.f};
 const vec4 CLR_TEXT = {0.1f, 0.1f, 0.1f, 1.0f};
 
 int FONT_SIZE = 18;
-int LINE_WIDTH = 2;
+int LINE_WIDTH = 1;
+int LINE_WIDTH_TH = 2;
 int MENU_HEIGHT = 30;
-int SIDE_WIDTH = 200;
+int SIDE_WIDTH = 250;
 int ITEM_HEIGHT = 24;
 
 static int SHD_PROJ, SHD_TEX1, SHD_TEXT, SHD_GRADIENT, SHD_CLR_TOP,
     SHD_CLR_BOTTOM;
 
 void init_renderer(const struct App *app) {
-    FONT_SIZE *= app->scale, LINE_WIDTH *= app->scale,
+    FONT_SIZE *= app->scale, LINE_WIDTH_TH *= app->scale,
     MENU_HEIGHT *= app->scale, SIDE_WIDTH *= app->scale,
     ITEM_HEIGHT *= app->scale;
 
@@ -101,6 +102,10 @@ void update_element(struct App *app, Element *el) {
     assert(el->type != REMOVED);
 
     switch (el->type) {
+        case SET:
+            update_set(app, el);
+            return;
+
         case MENUBAR:
             update_menu_bar(app, el);
             return;
@@ -116,6 +121,10 @@ void update_element(struct App *app, Element *el) {
         case BUTTON:
             update_button(app, el);
             return;
+
+        case SLIDER:
+            update_slider(app, el);
+            return;
     }
 }
 
@@ -123,6 +132,10 @@ void draw_element(const struct App *app, const Element *el) {
     assert(el->type != REMOVED && "Element is removed");
 
     switch (el->type) {
+        case SET:
+            draw_set(app, el);
+            return;
+
         case MENUBAR:
             draw_menu_bar(app, el);
             return;
@@ -136,30 +149,43 @@ void draw_element(const struct App *app, const Element *el) {
             return;
 
         case BUTTON:
+            draw_button(app, el);
+            return;
+
+        case SLIDER:
+            draw_slider(app, el);
             return;
     }
 }
 
 bool element_on_click(struct App *app, Element *el, int x, int y, int button,
-                      int action, int mods) {
+                      int action) {
     assert(el->type != REMOVED);
 
     for (int i = 0; i < el->child_count; i++) {
-        if (element_on_click(app, &el->children[i], x, y, button, action,
-                             mods)) {
+        if (element_on_click(app, &el->children[i], x, y, button, action)) {
             return true;
         }
     }
 
     switch (el->type) {
+        case SET:
+            return set_on_click(app, el, x, y, button, action);
+
         case MENUBAR:
             return bar_on_click(app, el, x, y, button, action);
 
         case MENU:
             return menu_on_click(app, el, x, y, button, action);
 
+        case SIDEBAR:
+            return sidebar_on_click(app, el, x, y, button, action);
+
         case BUTTON:
             return button_on_click(app, el, x, y, button, action);
+
+        case SLIDER:
+            return slider_on_click(app, el, x, y, button, action);
     }
 
     return false;
@@ -178,6 +204,37 @@ void destroy_element(Element *el) {
 bool element_is_hovered(const struct App *app, const Element *el) {
     return app->mouse_x > el->x && app->mouse_x <= el->x + el->width &&
            app->mouse_y > el->y && app->mouse_y <= el->y + el->height;
+}
+
+// Set impl
+
+void update_set(struct App *app, Element *el) {
+    assert(el->type == SET);
+
+    for (int i = 0; i < el->child_count; i++) {
+        update_element(app, &el->children[i]);
+    }
+}
+
+void draw_set(const struct App *app, const Element *el) {
+    assert(el->type == SET);
+
+    for (int i = 0; i < el->child_count; i++) {
+        draw_element(app, &el->children[i]);
+    }
+}
+
+bool set_on_click(struct App *app, Element *el, int x, int y, int button,
+                  int action) {
+    assert(el->type == SET);
+
+    for (int i = 0; i < el->child_count; i++) {
+        if (element_on_click(app, &el->children[i], x, y, button, action)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // Button impl
@@ -213,12 +270,36 @@ void update_button(struct App *app, Element *button) {
     }
 }
 
+void draw_button(const struct App *app, const Element *el) {
+    assert(el->type == BUTTON);
+    assert(el->data);
+    ButtonData *data = (ButtonData *) el->data;
+
+    set_color(CLR_TEXT);
+    draw_rect(app, el->x, el->y, el->width, el->height);
+
+    if (data->hovered) {
+        if (data->pressed)
+            set_color(CLR_ACCENT);
+        else
+            set_color(CLR_MENUL);
+    } else
+        set_color(CLR_MENU);
+    draw_rect(app, el->x + LINE_WIDTH, el->y + LINE_WIDTH,
+              el->width - LINE_WIDTH * 2, el->height - LINE_WIDTH * 2);
+
+    set_color(CLR_TEXT);
+    render_text(app, &app->font, data->text,
+                el->x + (el->width - text_width(&app->font, data->text)) / 2,
+                el->y + (el->height) / 2 + 5.5 * app->scale);
+}
+
 bool button_on_click(struct App *app, Element *button, int x, int y,
                      int button_, int action) {
     assert(button->data);
     ButtonData *data = (ButtonData *) button->data;
 
-    if (button_ == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS &&
+    if (button_ == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE &&
         data->hovered && data->on_click) {
         data->on_click(app, button);
         return true;

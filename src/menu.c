@@ -63,9 +63,9 @@ void draw_menu(const struct App *app, const Element *el) {
                       el->width, ITEM_HEIGHT);
 
             set_color(CLR_MENU);
-            draw_rect(app, el->x + LINE_WIDTH,
-                      el->y + ITEM_HEIGHT * data->selected_item + LINE_WIDTH,
-                      el->width - LINE_WIDTH * 2, ITEM_HEIGHT - LINE_WIDTH * 2);
+            draw_rect(app, el->x + LINE_WIDTH_TH,
+                      el->y + ITEM_HEIGHT * data->selected_item + LINE_WIDTH_TH,
+                      el->width - LINE_WIDTH_TH * 2, ITEM_HEIGHT - LINE_WIDTH_TH * 2);
         }
     }
 

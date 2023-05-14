@@ -25,6 +25,7 @@ struct App {
     float zoom, x_offset, y_offset, x_drag_start, y_drag_start;
     bool dragging;
     Element menubar, sidebar;
+    EffectManager effects;
 };
 
 void run_app(struct App *app);

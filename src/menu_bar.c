@@ -28,8 +28,8 @@ AppFn file_menu_callbacks[] = {NULL, NULL, NULL};
 char *edit_menu_items[] = {"Invert colors", NULL};
 AppFn edit_menu_callbacks[] = {invert_image};
 
-char *effect_menu_items[] = {"Darken", NULL};
-AppFn effect_menu_callbacks[] = {darken_image};
+char *effect_menu_items[] = {"Colorize", NULL};
+AppFn effect_menu_callbacks[] = {colorize_image};
 
 char *view_menu_items[] = {"Reset zoom", "Fit to screen", "Center image", NULL};
 AppFn view_menu_callbacks[] = {reset_zoom, fit_to_window, center_image};
@@ -108,8 +108,8 @@ static void draw_bar_button(const struct App *app, const BarData *data,
             draw_rect(app, button->x, 0, button->width, MENU_HEIGHT);
         }
         set_color(CLR_ACCENT);
-        draw_rect(app, button->x, MENU_HEIGHT - LINE_WIDTH, button->width,
-                  LINE_WIDTH);
+        draw_rect(app, button->x, MENU_HEIGHT - LINE_WIDTH_TH, button->width,
+                  LINE_WIDTH_TH);
     }
 
     set_color(CLR_TEXT);

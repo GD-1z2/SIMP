@@ -160,9 +160,14 @@ void mouse_button_callback(GLFWwindow *window, int button, int action,
                            int mods) {
     struct App *app = glfwGetWindowUserPointer(window);
 
-    if (!app->dragging &&
-        element_on_click(app, &app->menubar, app->mouse_x, app->mouse_y, button,
-                         action, mods))
+    if (!app->dragging && (
+        element_on_click(
+            app, &app->menubar, app->mouse_x, app->mouse_y, button, action
+        ) ||
+        element_on_click(
+            app, &app->sidebar, app->mouse_x, app->mouse_y, button, action
+        )
+    ))
         return;
 
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {

@@ -16,6 +16,7 @@ extern const vec4 CLR_TEXT;
 
 extern int FONT_SIZE;
 extern int LINE_WIDTH;
+extern int LINE_WIDTH_TH;
 extern int MENU_HEIGHT;
 extern int SIDE_WIDTH;
 extern int ITEM_HEIGHT;
@@ -23,10 +24,12 @@ extern int ITEM_HEIGHT;
 typedef enum {
     REMOVED = 0,
 
+    SET,
     MENUBAR,
     MENU,
     SIDEBAR,
     BUTTON,
+    SLIDER,
 } ElementType;
 
 typedef struct Element {
@@ -46,6 +49,23 @@ typedef struct Element {
 typedef void (*ElemCallback)(struct App *app, Element *el);
 
 typedef struct {
+    char **items;
+    AppFn *callbacks;
+    int item_count;
+    int selected_item;
+    bool to_destroy;
+} MenuData;
+
+typedef struct {
+    void *data;
+    void (*update)(struct App *app, struct Element *el);
+    void (*draw)(const struct App *app);
+    bool (*on_click)(struct App *app, struct Element *el, int x, int y,
+                     int button, int action);
+    bool to_destroy;
+} SidebarData;
+
+typedef struct {
     const char *text;
     ElemCallback on_click;
     bool hovered;
@@ -53,12 +73,13 @@ typedef struct {
 } ButtonData;
 
 typedef struct {
-    char **items;
-    AppFn *callbacks;
-    int item_count;
-    int selected_item;
-    bool to_destroy;
-} MenuData;
+    float value;
+    float min;
+    float max;
+    float step;
+    bool hovered;
+    bool pressed;
+} SliderData;
 
 void init_renderer(const struct App *app);
 void update_projection(const struct App *app);
@@ -76,9 +97,14 @@ void make_element(Element *el, ElementType type, int x, int y, int width,
 void update_element(struct App *app, Element *el);
 void draw_element(const struct App *app, const Element *el);
 bool element_on_click(struct App *app, Element *el, int x, int y, int button,
-                      int action, int mods);
+                      int action);
 void destroy_element(Element *el);
 bool element_is_hovered(const struct App *app, const Element *el);
+
+void update_set(struct App *app, Element *el);
+void draw_set(const struct App *app, const Element *el);
+bool set_on_click(struct App *app, Element *el, int x, int y, int button,
+                  int action);
 
 Element make_menu_bar(struct App *app);
 void update_menu_bar(struct App *app, Element *el);
@@ -95,8 +121,17 @@ bool menu_on_click(struct App *app, Element *el, int x, int y, int button,
 Element make_sidebar(struct App *app);
 void update_sidebar(struct App *app, Element *el);
 void draw_sidebar(const struct App *app, const Element *el);
+bool sidebar_on_click(struct App *app, Element *el, int x, int y, int button,
+                      int action);
 
 void make_button(Element *el, const char *text, ElemCallback on_click);
 void update_button(struct App *app, Element *button);
+void draw_button(const struct App *app, const Element *el);
 bool button_on_click(struct App *app, Element *button, int x, int y,
                      int button_, int action);
+
+void make_slider(Element *el, float value, float min, float max, float step);
+void update_slider(struct App *app, Element *el);
+void draw_slider(const struct App *app, const Element *el);
+bool slider_on_click(struct App *app, Element *el, int x, int y, int button,
+                     int action);
