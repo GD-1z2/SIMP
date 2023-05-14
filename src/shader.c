@@ -17,7 +17,7 @@ create_shader(GLenum shader_type, const char *file, GLuint *result) {
     fseek(fp, 0, SEEK_SET);
     char *source = malloc(size + 1);
     if (!source) {
-        printf("Failed to allocate memory for shader_default source\n");
+        printf("Failed to allocate memory for shader source\n");
         return false;
     }
     fread(source, 1, size, fp);

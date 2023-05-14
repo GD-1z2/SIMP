@@ -12,7 +12,7 @@ void invert_image(struct App *app) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, app->image.texture_front);
 
-    glUniform1i(glGetUniformLocation(app->shader_invert, "texture1"), 0);
+    glUniform1i(glGetUniformLocation(app->shader_invert, "uTexture1"), 0);
 
     draw_rect(app, -1, -1, 2, 2);
 
@@ -32,7 +32,7 @@ void darken_image(struct App *app) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, app->image.texture_front);
 
-    glUniform1i(glGetUniformLocation(app->shader_colorize, "texture1"), 0);
+    glUniform1i(glGetUniformLocation(app->shader_colorize, "uTexture1"), 0);
     glUniform4f(glGetUniformLocation(app->shader_colorize, "uColor"), .9f, .9f,
                 .9f, 1.f);
 

@@ -17,7 +17,8 @@ struct GLFWcursor *cursor_arrow;
 static void mouse_button_callback(GLFWwindow *window, int button, int action,
                                   int mods);
 
-void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
+void scroll_callback(GLFWwindow *window, __attribute__((unused)) double x_off_d,
+                     double y_off_d);
 
 void run_app(struct App *app) {
     glfwSetWindowUserPointer(app->window, app);
@@ -27,16 +28,15 @@ void run_app(struct App *app) {
     cursor_hand = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
     cursor_arrow = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
 
+    app->scale =
+        (float) glfwGetVideoMode(glfwGetPrimaryMonitor())->height / 1080.f;
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Set up vertex data and buffers
-    float vertices[] = {// positions          // raw_image coords
-        .0f, .0f, 0.0f, 0.0f, 1.0f, .0f, 1.0f, 0.0f,
-        1.0f, 1.0f, 1.0f, 1.0f, .0f, 1.0f, 0.0f, 1.0f};
-
-    unsigned int indices[] = {0, 1, 2,   // first triangle
-                              0, 2, 3};  // second triangle
+    const float vertices[] = {.0f, .0f, 0.0f, 0.0f, 1.0f, .0f, 1.0f, 0.0f,
+                              1.0f, 1.0f, 1.0f, 1.0f, .0f, 1.0f, 0.0f, 1.0f};
+    const unsigned int indices[] = {0, 1, 2, 0, 2, 3};
 
     unsigned int ebo;
 
@@ -59,38 +59,6 @@ void run_app(struct App *app) {
                           (void *) (2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    unsigned int fs_ebo;
-    float fs_vertices[] = {.0f, .0f, 0.0f, 0.0f,  //
-                           1.0f, .0f, 1.0f, 0.0f,  //
-                           1.0f, 1.0f, 1.0f, 1.0f,  //
-                           .0f, 1.0f, 0.0f, 1.0f};
-
-    glGenVertexArrays(1, &app->fs_vao);
-    glGenBuffers(1, &app->fs_vbo);
-    glGenBuffers(1, &fs_ebo);
-
-    glBindVertexArray(app->fs_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, app->fs_vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, fs_ebo);
-
-    glBufferData(GL_ARRAY_BUFFER, sizeof(fs_vertices), fs_vertices,
-                 GL_STATIC_DRAW);
-
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
-                 GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
-                          (void *) 0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
-                          (void *) (2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    if (!load_raw_image("test.png", &app->raw_image)) {
-        return;
-    }
-    assert(app->raw_image.width > 0 && "Failed to load raw_image");
     if (!create_shader_program("default", "default", &app->shader_default)) {
         printf("Failed to create shader_default program\n");
         return;
@@ -105,55 +73,63 @@ void run_app(struct App *app) {
         printf("Failed to create shader_colorize program\n");
         return;
     }
+
     glUseProgram(app->shader_default);
-    int proj_loc = glGetUniformLocation(app->shader_default, "uProjection");
-    int mod_loc = glGetUniformLocation(app->shader_default, "uModel");
+    init_renderer(app);
+    update_projection(app);
 
-    app->image = create_image_from_raw(app, app->raw_image);
-
-    if (!load_font(app, "Inter-Regular.ttf", &app->font)) {
-        printf("Failed to load font\n");
+    if (!load_raw_image("test.png", &app->raw_image)
+        || !create_image_from_raw(app, app->raw_image, &app->image)
+        || !load_font(app, "Inter-Regular.ttf", &app->font)) {
         return;
     }
 
     app->menubar = make_menu_bar(app);
+    app->sidebar = make_sidebar(app);
 
     while (!glfwWindowShouldClose(app->window)) {
         glfwPollEvents();
 
         // Update
         glfwGetWindowSize(app->window, &app->width, &app->height);
-
-        double mouse_x, mouse_y;
-        glfwGetCursorPos(app->window, &mouse_x, &mouse_y);
-        app->mouse_x = mouse_x;
-        app->mouse_y = mouse_y;
+        double mouse_x_d, mouse_y_d;
+        glfwGetCursorPos(app->window, &mouse_x_d, &mouse_y_d);
+        app->mouse_x = (float) mouse_x_d;
+        app->mouse_y = (float) mouse_y_d;
 
         app->cursor = cursor_arrow;
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, app->width, app->height);
-        glClearColor(0.25f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        if (app->dragging) {
+            app->cursor = cursor_hand;
+
+            float dx = app->mouse_x - app->x_drag_start;
+            float dy = app->mouse_y - app->y_drag_start;
+            app->x_drag_start = app->mouse_x;
+            app->y_drag_start = app->mouse_y;
+            app->x_offset += dx;
+            app->y_offset += dy;
+        }
 
         update_element(app, &app->menubar);
+        update_element(app, &app->sidebar);
 
         // Render
         glUseProgram(app->shader_default);
 
-        mat4 projection = GLM_MAT4_IDENTITY_INIT;
-        glm_ortho(0.f, (float) app->width, (float) app->height, 0.f, -1.f, 1.f,
-                  projection);
-        glUniformMatrix4fv(proj_loc, 1, GL_FALSE, (float *) projection);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, app->width, app->height);
+        glClearColor(CLR_BG[0], CLR_BG[1], CLR_BG[2], CLR_BG[3]);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-        mat4 model = GLM_MAT4_IDENTITY_INIT;
-        glUniformMatrix4fv(mod_loc, 1, GL_FALSE, (float *) model);
+        update_projection(app);
 
         float zoom = exp2f(app->zoom);
-        set_texture(app, app->image.texture_front);
-        draw_rect_centered(app, app->width / 2.f, app->height / 2.f + 24,
+        set_texture(app->image.texture_front);
+        draw_rect_centered(app, (app->width + SIDE_WIDTH) / 2.f + app->x_offset,
+                           (app->height + MENU_HEIGHT) / 2.f + app->y_offset,
                            app->image.width * zoom, app->image.height * zoom);
 
+        draw_element(app, &app->sidebar);
         draw_element(app, &app->menubar);
 
         glfwSetCursor(app->window, app->cursor);
@@ -170,22 +146,50 @@ void reset_zoom(struct App *app) {
 }
 
 void fit_to_window(struct App *app) {
-    float zoom_x = (float) app->width / app->image.width;
-    float zoom_y = (float) (app->height - 48) / app->image.height;
+    float zoom_x = (float) (app->width - SIDE_WIDTH) / app->image.width;
+    float zoom_y = (float) (app->height - MENU_HEIGHT) / app->image.height;
     app->zoom = log2f(glm_min(zoom_x, zoom_y));
+}
+
+void center_image(struct App *app) {
+    app->x_offset = 0;
+    app->y_offset = 0;
 }
 
 void mouse_button_callback(GLFWwindow *window, int button, int action,
                            int mods) {
     struct App *app = glfwGetWindowUserPointer(window);
 
-    element_on_click(app, &app->menubar, app->mouse_x, app->mouse_y, button,
-                     action, mods);
+    if (!app->dragging &&
+        element_on_click(app, &app->menubar, app->mouse_x, app->mouse_y, button,
+                         action, mods))
+        return;
+
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        app->x_drag_start = app->mouse_x;
+        app->y_drag_start = app->mouse_y;
+        app->dragging = true;
+    } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+        app->x_drag_start = 0;
+        app->y_drag_start = 0;
+        app->dragging = false;
+    }
 }
 
-void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
+void scroll_callback(GLFWwindow *window, __attribute__((unused)) double x_off_d,
+                     double y_off_d) {
     struct App *app = glfwGetWindowUserPointer(window);
-    app->zoom += yoffset / 10;
-    app->zoom = glm_max(app->zoom, log2f(100.f / app->image.width));
-    app->zoom = glm_min(app->zoom, log2f(10000.f / app->image.width));
+    float y_off = (float) y_off_d;
+    app->zoom += y_off / 10;
+    float min_zoom = log2f(100.f / (float) app->image.width);
+    float max_zoom = log2f(10000.f / (float) app->image.width);
+
+    if (app->zoom < min_zoom) {
+        app->zoom = min_zoom;
+    } else if (app->zoom > max_zoom) {
+        app->zoom = max_zoom;
+    } else {
+        app->x_offset *= exp2f(y_off / 10);
+        app->y_offset *= exp2f(y_off / 10);
+    }
 }

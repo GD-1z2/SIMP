@@ -7,11 +7,25 @@
 struct App;
 struct Element;
 
+extern const vec4 CLR_BG;
+extern const vec4 CLR_MENU;
+extern const vec4 CLR_MENUD;
+extern const vec4 CLR_MENUL;
+extern const vec4 CLR_ACCENT;
+extern const vec4 CLR_TEXT;
+
+extern int FONT_SIZE;
+extern int LINE_WIDTH;
+extern int MENU_HEIGHT;
+extern int SIDE_WIDTH;
+extern int ITEM_HEIGHT;
+
 typedef enum {
     REMOVED = 0,
 
-    BAR,
+    MENUBAR,
     MENU,
+    SIDEBAR,
     BUTTON,
 } ElementType;
 
@@ -46,9 +60,12 @@ typedef struct {
     bool to_destroy;
 } MenuData;
 
-void set_texture(const struct App *app, unsigned int texture);
-void set_color(const struct App *app, vec4 color);
-void set_gradient(const struct App *app, vec4 color_top, vec4 color_bottom);
+void init_renderer(const struct App *app);
+void update_projection(const struct App *app);
+
+void set_texture(unsigned int texture);
+void set_color(const vec4 color);
+void set_gradient(const vec4 color_top, const vec4 color_bottom);
 
 void draw_rect(const struct App *app, int x, int y, int width, int height);
 void draw_rect_centered(const struct App *app, int x, int y, int width,
@@ -63,20 +80,23 @@ bool element_on_click(struct App *app, Element *el, int x, int y, int button,
 void destroy_element(Element *el);
 bool element_is_hovered(const struct App *app, const Element *el);
 
-void make_button(Element *el, const char *text, ElemCallback on_click);
-void update_button(struct App *app, Element *button);
-bool button_on_click(struct App *app, Element *button, int x, int y,
-                     int button_, int action);
-
 Element make_menu_bar(struct App *app);
 void update_menu_bar(struct App *app, Element *el);
 void draw_menu_bar(const struct App *app, const Element *el);
 bool bar_on_click(struct App *app, Element *el, int x, int y, int button,
                   int action);
 
-void
-make_menu(struct App *app, Element *el, char **items, AppFn *callbacks);
+void make_menu(struct App *app, Element *el, char **items, AppFn *callbacks);
 void update_menu(struct App *app, Element *el);
 void draw_menu(const struct App *app, const Element *el);
 bool menu_on_click(struct App *app, Element *el, int x, int y, int button,
                    int action);
+
+Element make_sidebar(struct App *app);
+void update_sidebar(struct App *app, Element *el);
+void draw_sidebar(const struct App *app, const Element *el);
+
+void make_button(Element *el, const char *text, ElemCallback on_click);
+void update_button(struct App *app, Element *button);
+bool button_on_click(struct App *app, Element *button, int x, int y,
+                     int button_, int action);

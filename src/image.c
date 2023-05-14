@@ -20,8 +20,8 @@ bool load_raw_image(const char *filename, RawImage *raw_image) {
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, data);
@@ -33,7 +33,7 @@ bool load_raw_image(const char *filename, RawImage *raw_image) {
     return true;
 }
 
-Image create_image_from_raw(struct App *app, RawImage raw_image) {
+bool create_image_from_raw(struct App *app, RawImage raw_image, Image *image) {
     unsigned int framebuffer_front;
     glGenFramebuffers(1, &framebuffer_front);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_front);
@@ -43,14 +43,14 @@ Image create_image_from_raw(struct App *app, RawImage raw_image) {
     glBindTexture(GL_TEXTURE_2D, texture_front);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, raw_image.width, raw_image.height,
                  0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                            texture_front, 0);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         printf("Failed to create framebuffer_front\n");
-        return (Image) {0, 0, 0, 0, 0, 0, 0};
+        return false;
     }
 
     unsigned int framebuffer_back;
@@ -62,14 +62,14 @@ Image create_image_from_raw(struct App *app, RawImage raw_image) {
     glBindTexture(GL_TEXTURE_2D, texture_back);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, raw_image.width, raw_image.height,
                  0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                            texture_back, 0);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         printf("Failed to create framebuffer_front\n");
-        return (Image) {0, 0, 0, 0, 0, 0, 0};
+        return false;
     }
 
 
@@ -78,30 +78,21 @@ Image create_image_from_raw(struct App *app, RawImage raw_image) {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    mat4 projection;
-    glm_ortho(0.0f, (float) raw_image.width, (float) raw_image.height, 0.0f, -1.0f, 1.0f,
-              projection);
     glUseProgram(app->shader_default);
+    mat4 projection;
+    glm_ortho(0.0f, (float) raw_image.width, (float) raw_image.height, 0.0f,
+              -1.0f, 1.0f, projection);
     glUniformMatrix4fv(glGetUniformLocation(app->shader_default, "uProjection"),
                        1, GL_FALSE, (float *) projection);
 
-    mat4 model;
-    glm_mat4_identity(model);
-    glm_translate(model, (vec3) {0.0f, 0.0f, 0.0f});
-    glm_scale(model, (vec3) {raw_image.width, raw_image.height, 1.0f});
-    glUniformMatrix4fv(glGetUniformLocation(app->shader_default, "uModel"),
-                       1, GL_FALSE, (float *) model);
+    set_texture(raw_image.texture);
+    draw_rect(app, 0, 0, raw_image.width, raw_image.height);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, raw_image.texture);
-    glBindVertexArray(app->vao);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-
-    return (Image) {
+    *image = (Image) {
         raw_image.width, raw_image.height, raw_image.channels,
         framebuffer_front, framebuffer_back,
         texture_front, texture_back};
+    return true;
 }
 
 void swap_image_buffers(Image *image) {

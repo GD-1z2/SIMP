@@ -4,8 +4,7 @@
 
 #include "assert.h"
 
-#define BARHEIGHT 48
-#define MENUCOUNT 4
+#define MENU_COUNT 4
 
 typedef struct {
     int i;
@@ -32,12 +31,12 @@ AppFn edit_menu_callbacks[] = {invert_image};
 char *effect_menu_items[] = {"Darken", NULL};
 AppFn effect_menu_callbacks[] = {darken_image};
 
-char *view_menu_items[] = {"Reset zoom", "Fit to screen", NULL};
-AppFn view_menu_callbacks[] = {reset_zoom, fit_to_window};
+char *view_menu_items[] = {"Reset zoom", "Fit to screen", "Center image", NULL};
+AppFn view_menu_callbacks[] = {reset_zoom, fit_to_window, center_image};
 
 Element make_menu_bar(struct App *app) {
     Element el = {0};
-    make_element(&el, BAR, 0, 0, app->width, BARHEIGHT);
+    make_element(&el, MENUBAR, 0, 0, app->width, MENU_HEIGHT);
 
     BarData *data = calloc(1, sizeof(BarData));
     el.data = data;
@@ -45,9 +44,11 @@ Element make_menu_bar(struct App *app) {
     data->selected_item = -1;
     data->open_item = -1;
 
+    int margin = (int) (app->scale * 30.f);
+
     int x = 0;
-    for (int i = 0; i < MENUCOUNT; i++) {
-        int width = (int) text_width(&app->font, menu_bar_items[i]) + 30;
+    for (int i = 0; i < MENU_COUNT; i++) {
+        int width = (int) text_width(&app->font, menu_bar_items[i]) + margin;
         data->items[i] = (BarButton) {i, menu_bar_items[i], x, width};
         x += width;
     }
@@ -56,7 +57,7 @@ Element make_menu_bar(struct App *app) {
 }
 
 void update_menu_bar(struct App *app, Element *el) {
-    assert(el->type == BAR);
+    assert(el->type == MENUBAR);
     assert(el->data);
     BarData *data = el->data;
 
@@ -78,13 +79,13 @@ void update_menu_bar(struct App *app, Element *el) {
     }
 
     if (app->mouse_x >
-        data->items[MENUCOUNT - 1].x + data->items[MENUCOUNT - 1].width) {
+        data->items[MENU_COUNT - 1].x + data->items[MENU_COUNT - 1].width) {
         return;
     }
 
     data->selected_item = 0;
 
-    for (int i = 0; i < MENUCOUNT; i++) {
+    for (int i = 0; i < MENU_COUNT; i++) {
         if (app->mouse_x > data->items[i].x) {
             data->selected_item = i;
         }
@@ -96,35 +97,37 @@ void update_menu_bar(struct App *app, Element *el) {
 static void draw_bar_button(const struct App *app, const BarData *data,
                             const BarButton *button) {
     if (button->i == data->open_item) {
-        set_color(app, (vec4) {.4f, .7f, 1.f, 1.f});
-        draw_rect(app, button->x, 0, button->width, BARHEIGHT);
+        set_color(CLR_ACCENT);
+        draw_rect(app, button->x, 0, button->width, MENU_HEIGHT);
     }
 
     if (button->i == data->selected_item) {
         if (glfwGetMouseButton(app->window, GLFW_MOUSE_BUTTON_LEFT) ==
             GLFW_PRESS) {
-            set_color(app, (vec4) {.8f, .8f, .8f, 1.f});
-            draw_rect(app, button->x, 0, button->width, BARHEIGHT);
+            set_color(CLR_MENUD);
+            draw_rect(app, button->x, 0, button->width, MENU_HEIGHT);
         }
-        set_color(app, (vec4) {.4f, .7f, 1.f, 1.f});
-        draw_rect(app, button->x, BARHEIGHT - 4, button->width, 4);
+        set_color(CLR_ACCENT);
+        draw_rect(app, button->x, MENU_HEIGHT - LINE_WIDTH, button->width,
+                  LINE_WIDTH);
     }
 
-    set_color(app, (vec4) {.1f, .1f, .1f, 1.f});
+    set_color(CLR_TEXT);
     float tw = text_width(&app->font, button->text);
     render_text(app, &app->font, button->text,
-                button->x + button->width / 2 - tw / 2, BARHEIGHT - 14);
+                button->x + button->width / 2 - tw / 2,
+                (float) MENU_HEIGHT - 9 * app->scale);
 }
 
 void draw_menu_bar(const struct App *app, const Element *el) {
-    assert(el->type == BAR);
+    assert(el->type == MENUBAR);
     assert(el->data);
     BarData *data = el->data;
 
-    set_color(app, (vec4) {.9f, .9f, .9f, 1.f});
+    set_color(CLR_MENU);
     draw_rect(app, el->x, el->y, el->width, el->height);
 
-    for (int i = 0; i < MENUCOUNT; i++)
+    for (int i = 0; i < MENU_COUNT; i++)
         draw_bar_button(app, el->data, &data->items[i]);
 
     if (el->children) draw_element(app, el->children);
@@ -146,7 +149,7 @@ open_menu(struct App *app, Element *el, BarData *data, char **items,
 
     Element *child = calloc(1, sizeof(Element));
     int x = data->items[data->selected_item].x;
-    make_element(child, MENU, x, BARHEIGHT, 200, 200);
+    make_element(child, MENU, x, MENU_HEIGHT, 200, 200);
     make_menu(app, child, items, callbacks);
 
     el->children = child;
@@ -156,19 +159,18 @@ open_menu(struct App *app, Element *el, BarData *data, char **items,
 
 bool bar_on_click(struct App *app, Element *el, int x, int y, int button,
                   int action) {
-    assert(el->type == BAR);
+    assert(el->type == MENUBAR);
     assert(el->data);
     BarData *data = el->data;
 
-    if (button != GLFW_MOUSE_BUTTON_LEFT || action != GLFW_RELEASE) {
+    if (app->mouse_y > MENU_HEIGHT) {
         return false;
     }
 
-    if (data->selected_item == -1) {
-        return false;
+    if (button != GLFW_MOUSE_BUTTON_LEFT || action != GLFW_RELEASE ||
+        data->selected_item == -1) {
+        return true;
     }
-
-    BarButton *b = &data->items[data->selected_item];
 
     bool open = data->open_item != data->selected_item;
 

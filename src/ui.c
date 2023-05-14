@@ -3,34 +3,66 @@
 #include <GLFW/glfw3.h>
 
 #include "assert.h"
+#include "cglm/cam.h"
 #include "ui.h"
 
-void set_texture(const struct App *app, unsigned int texture) {
-    glUniform1i(glGetUniformLocation(app->shader_default, "uText"), 0);
-    glUniform1i(glGetUniformLocation(app->shader_default, "uGradient"), 0);
+const vec4 CLR_BG = {0.28f, 0.3f, 0.3f, 1.0f};
+const vec4 CLR_MENU = {0.9f, 0.9f, 0.9f, 1.0f};
+const vec4 CLR_MENUD = {0.8f, 0.8f, 0.8f, 1.0f};
+const vec4 CLR_MENUL = {0.95f, 0.95f, 0.95f, 1.0f};
+const vec4 CLR_ACCENT = {.4f, .7f, 1.f, 1.f};
+const vec4 CLR_TEXT = {0.1f, 0.1f, 0.1f, 1.0f};
 
-    glUniform1i(glGetUniformLocation(app->shader_default, "texture1"), 0);
+int FONT_SIZE = 18;
+int LINE_WIDTH = 2;
+int MENU_HEIGHT = 30;
+int SIDE_WIDTH = 200;
+int ITEM_HEIGHT = 24;
+
+static int SHD_PROJ, SHD_TEX1, SHD_TEXT, SHD_GRADIENT, SHD_CLR_TOP,
+    SHD_CLR_BOTTOM;
+
+void init_renderer(const struct App *app) {
+    FONT_SIZE *= app->scale, LINE_WIDTH *= app->scale,
+    MENU_HEIGHT *= app->scale, SIDE_WIDTH *= app->scale,
+    ITEM_HEIGHT *= app->scale;
+
+    SHD_PROJ = glGetUniformLocation(app->shader_default, "uProjection");
+    SHD_TEX1 = glGetUniformLocation(app->shader_default, "uTexture1");
+    SHD_TEXT = glGetUniformLocation(app->shader_default, "uText");
+    SHD_GRADIENT = glGetUniformLocation(app->shader_default, "uGradient");
+    SHD_CLR_TOP = glGetUniformLocation(app->shader_default, "uColorTop");
+    SHD_CLR_BOTTOM = glGetUniformLocation(app->shader_default, "uColorBottom");
+}
+
+void update_projection(const struct App *app) {
+    mat4 projection;
+    glm_ortho(0.f, (float) app->width, (float) app->height, 0.f, -1.f, 1.f,
+              projection);
+    glUniformMatrix4fv(SHD_PROJ, 1, GL_FALSE, (float *) projection);
+}
+
+void set_texture(unsigned int texture) {
+    glUniform1i(SHD_TEXT, 0);
+    glUniform1i(SHD_GRADIENT, 0);
+    glUniform1i(SHD_TEX1, 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
 }
 
-void set_color(const struct App *app, vec4 color) {
-    glUniform1i(glGetUniformLocation(app->shader_default, "uText"), 0);
-    glUniform1i(glGetUniformLocation(app->shader_default, "uGradient"), 1);
-
-    glUniform4f(glGetUniformLocation(app->shader_default, "uColorTop"),
-                color[0], color[1], color[2], color[3]);
-    glUniform4f(glGetUniformLocation(app->shader_default, "uColorBottom"),
-                color[0], color[1], color[2], color[3]);
+void set_color(const vec4 color) {
+    glUniform1i(SHD_TEXT, 0);
+    glUniform1i(SHD_GRADIENT, 1);
+    glUniform4f(SHD_CLR_TOP, color[0], color[1], color[2], color[3]);
+    glUniform4f(SHD_CLR_BOTTOM, color[0], color[1], color[2], color[3]);
 }
 
-void set_gradient(const struct App *app, vec4 color_top, vec4 color_bottom) {
-    glUniform1i(glGetUniformLocation(app->shader_default, "uText"), 0);
-    glUniform1i(glGetUniformLocation(app->shader_default, "uGradient"), 1);
-
-    glUniform4f(glGetUniformLocation(app->shader_default, "uColorTop"),
+void set_gradient(const vec4 color_top, const vec4 color_bottom) {
+    glUniform1i(SHD_TEXT, 0);
+    glUniform1i(SHD_GRADIENT, 1);
+    glUniform4f(SHD_CLR_TOP,
                 color_top[0], color_top[1], color_top[2], color_top[3]);
-    glUniform4f(glGetUniformLocation(app->shader_default, "uColorBottom"),
+    glUniform4f(SHD_CLR_BOTTOM,
                 color_bottom[0], color_bottom[1], color_bottom[2],
                 color_bottom[3]);
 }
@@ -38,18 +70,13 @@ void set_gradient(const struct App *app, vec4 color_top, vec4 color_bottom) {
 void draw_rect(const struct App *app, int x, int y, int width, int height) {
     glBindVertexArray(app->vao);
     glBindBuffer(GL_ARRAY_BUFFER, app->vbo);
-
     float vertices[] = {
-        x,         y,          0.f, 0.f,  //
-        x + width, y,          1.f, 0.f,  //
+        x, y, 0.f, 0.f,  //
+        x + width, y, 1.f, 0.f,  //
         x + width, y + height, 1.f, 1.f,  //
-        x,         y + height, 0.f, 1.f,
+        x, y + height, 0.f, 1.f,
     };
-
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-
-//    glUseProgram(app->shader_default);
-
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
@@ -74,13 +101,17 @@ void update_element(struct App *app, Element *el) {
     assert(el->type != REMOVED);
 
     switch (el->type) {
-        case BAR:
+        case MENUBAR:
             update_menu_bar(app, el);
             return;
 
         case MENU:
             update_menu(app, el);
             return;
+
+        case SIDEBAR:
+            update_sidebar(app, el);
+            break;
 
         case BUTTON:
             update_button(app, el);
@@ -92,12 +123,16 @@ void draw_element(const struct App *app, const Element *el) {
     assert(el->type != REMOVED && "Element is removed");
 
     switch (el->type) {
-        case BAR:
+        case MENUBAR:
             draw_menu_bar(app, el);
             return;
 
         case MENU:
             draw_menu(app, el);
+            return;
+
+        case SIDEBAR:
+            draw_sidebar(app, el);
             return;
 
         case BUTTON:
@@ -117,7 +152,7 @@ bool element_on_click(struct App *app, Element *el, int x, int y, int button,
     }
 
     switch (el->type) {
-        case BAR:
+        case MENUBAR:
             return bar_on_click(app, el, x, y, button, action);
 
         case MENU:
@@ -145,11 +180,13 @@ bool element_is_hovered(const struct App *app, const Element *el) {
            app->mouse_y > el->y && app->mouse_y <= el->y + el->height;
 }
 
+// Button impl
+
 void make_button(Element *button, const char *text, ElemCallback on_click) {
     assert(button->type == BUTTON);
 
     button->data = malloc(sizeof(ButtonData));
-    ButtonData *data = (ButtonData *)button->data;
+    ButtonData *data = (ButtonData *) button->data;
 
     data->text = text;
     data->on_click = on_click;
@@ -157,11 +194,9 @@ void make_button(Element *button, const char *text, ElemCallback on_click) {
     data->pressed = false;
 }
 
-// Per-type impl
-
 void update_button(struct App *app, Element *button) {
     assert(button->data);
-    ButtonData *data = (ButtonData *)button->data;
+    ButtonData *data = (ButtonData *) button->data;
 
     if (element_is_hovered(app, button)) {
         data->hovered = true;
@@ -181,7 +216,7 @@ void update_button(struct App *app, Element *button) {
 bool button_on_click(struct App *app, Element *button, int x, int y,
                      int button_, int action) {
     assert(button->data);
-    ButtonData *data = (ButtonData *)button->data;
+    ButtonData *data = (ButtonData *) button->data;
 
     if (button_ == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS &&
         data->hovered && data->on_click) {

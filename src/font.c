@@ -14,7 +14,7 @@ bool load_font(const struct App *app, const char *filename, Font *result) {
     // Load the font using stb_truetype
     FILE *file = fopen(filename, "rb");
     if (file == NULL) {
-        printf("Failed to open font file\n");
+        printf("Failed to open font file \"%s\"\n", filename);
         return false;
     }
 
@@ -27,7 +27,7 @@ bool load_font(const struct App *app, const char *filename, Font *result) {
     fclose(file);
 
     if (!stbtt_InitFont(&font.info, data, 0)) {
-        printf("Failed to initialize font\n");
+        printf("Failed to initialize font \"%s\"\n", filename);
         return false;
     }
 
@@ -36,8 +36,8 @@ bool load_font(const struct App *app, const char *filename, Font *result) {
     // Create the font atlas
     int width = 512, height = 512;
     unsigned char *atlas = malloc(width * height);
-    stbtt_BakeFontBitmap(data, 0, 30.f, atlas, width, height, 32, 96,
-                         font.glyphs);
+    stbtt_BakeFontBitmap(data, 0, (float) FONT_SIZE, atlas, width, height, 32,
+                         96, font.glyphs);
 
     // Create the font texture
     glGenTextures(1, &font.texture);
@@ -59,11 +59,11 @@ bool load_font(const struct App *app, const char *filename, Font *result) {
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
 
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
-                          (void *)0);
+                          (void *) 0);
     glEnableVertexAttribArray(0);
 
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
-                          (void *)(2 * sizeof(float)));
+                          (void *) (2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     *result = font;
@@ -73,7 +73,7 @@ bool load_font(const struct App *app, const char *filename, Font *result) {
 void render_text(const struct App *app, const Font *font, const char *text,
                  float x, float y) {
     glUseProgram(app->shader_default);
-    glUniform1i(glGetUniformLocation(app->shader_default, "texture1"), 0);
+    glUniform1i(glGetUniformLocation(app->shader_default, "uTexture1"), 0);
     glUniform1i(glGetUniformLocation(app->shader_default, "uText"), 1);
     glUniform1i(glGetUniformLocation(app->shader_default, "uGradient"), 0);
 
@@ -92,10 +92,12 @@ void render_text(const struct App *app, const Font *font, const char *text,
                                &q, 1);
 
             float vertices[6][4] = {
-                {q.x0, q.y0, q.s0, q.t0}, {q.x1, q.y0, q.s1, q.t0},
+                {q.x0, q.y0, q.s0, q.t0},
+                {q.x1, q.y0, q.s1, q.t0},
                 {q.x1, q.y1, q.s1, q.t1},
 
-                {q.x0, q.y0, q.s0, q.t0}, {q.x1, q.y1, q.s1, q.t1},
+                {q.x0, q.y0, q.s0, q.t0},
+                {q.x1, q.y1, q.s1, q.t1},
                 {q.x0, q.y1, q.s0, q.t1},
             };
 
@@ -113,7 +115,7 @@ float text_width(const Font *font, const char *text) {
         if (*text >= 32 && *text < 128) {
             stbtt_aligned_quad q;
             stbtt_GetBakedQuad(font->glyphs, 512, 512, *text - 32, &width,
-                               &(float){0}, &q, 1);
+                               &(float) {0}, &q, 1);
         }
 
         ++text;

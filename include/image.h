@@ -25,7 +25,7 @@ typedef struct {
 
 struct App;
 
-Image create_image_from_raw(struct App *app, RawImage raw_image);
+bool create_image_from_raw(struct App *app, RawImage raw_image, Image *image);
 
 void swap_image_buffers(Image *image);
 

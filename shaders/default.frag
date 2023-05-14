@@ -4,7 +4,7 @@ out vec4 FragColor;
 
 in vec2 oTexCoord;
 
-uniform sampler2D texture1;
+uniform sampler2D uTexture1;
 uniform bool uText;
 uniform bool uGradient;
 uniform vec4 uColorTop;
@@ -18,9 +18,9 @@ void main()
     }
     if (uText) {
         FragColor = mix(uColorBottom, uColorTop, oTexCoord.y);
-        FragColor.a = texture(texture1, oTexCoord).r;
+        FragColor.a = texture(uTexture1, oTexCoord).r;
         return;
     }
 
-    FragColor = texture(texture1, oTexCoord);
+    FragColor = texture(uTexture1, oTexCoord);
 }
