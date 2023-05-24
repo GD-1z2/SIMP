@@ -54,10 +54,6 @@ void draw_menu(const struct App *app, const Element *el) {
     if (data->selected_item != -1) {
         if (glfwGetMouseButton(app->window, GLFW_MOUSE_BUTTON_LEFT) ==
             GLFW_PRESS) {
-            set_color(CLR_MENUD);
-            draw_rect(app, el->x, el->y + ITEM_HEIGHT * data->selected_item,
-                      el->width, ITEM_HEIGHT);
-        } else {
             set_color(CLR_ACCENT);
             draw_rect(app, el->x, el->y + ITEM_HEIGHT * data->selected_item,
                       el->width, ITEM_HEIGHT);
@@ -66,6 +62,10 @@ void draw_menu(const struct App *app, const Element *el) {
             draw_rect(app, el->x + LINE_WIDTH_TH,
                       el->y + ITEM_HEIGHT * data->selected_item + LINE_WIDTH_TH,
                       el->width - LINE_WIDTH_TH * 2, ITEM_HEIGHT - LINE_WIDTH_TH * 2);
+        } else {
+            set_color(CLR_MENU);
+            draw_rect(app, el->x, el->y + ITEM_HEIGHT * data->selected_item,
+                      el->width, ITEM_HEIGHT);
         }
     }
 
@@ -78,7 +78,7 @@ void draw_menu(const struct App *app, const Element *el) {
     }
 }
 
-bool menu_on_click(struct App *app, Element *el, int x, int y, int button,
+bool on_click_menu(struct App *app, Element *el, int x, int y, int button,
                    int action) {
     assert(el->type == MENU);
     assert(el->data);

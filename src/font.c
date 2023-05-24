@@ -48,23 +48,7 @@ bool load_font(const struct App *app, const char *filename, Font *result) {
     glGenerateMipmap(GL_TEXTURE_2D);
 
     free(atlas);
-    //    free(data);
-
-    // Create the font VAO
-    glGenVertexArrays(1, &font.vao);
-    glBindVertexArray(font.vao);
-
-    glGenBuffers(1, &font.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, font.vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
-                          (void *) 0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
-                          (void *) (2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+    free(data);
 
     *result = font;
     return true;
@@ -72,37 +56,32 @@ bool load_font(const struct App *app, const char *filename, Font *result) {
 
 void render_text(const struct App *app, const Font *font, const char *text,
                  float x, float y) {
-    glUseProgram(app->shader_default);
-    glUniform1i(glGetUniformLocation(app->shader_default, "uTexture1"), 0);
-    glUniform1i(glGetUniformLocation(app->shader_default, "uText"), 1);
-    glUniform1i(glGetUniformLocation(app->shader_default, "uGradient"), 0);
+    glUseProgram(app->shader_ui);
+    glUniform1i(glGetUniformLocation(app->shader_ui, "uTexture1"), 0);
+    glUniform1i(glGetUniformLocation(app->shader_ui, "uText"), 1);
+    glUniform1i(glGetUniformLocation(app->shader_ui, "uGradient"), 0);
 
-    glBindVertexArray(font->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, font->vbo);
+    glBindVertexArray(app->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, app->vbo);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, font->texture);
 
-    float xpos = x, ypos = y;
-
     while (*text) {
         if (*text >= 32 && *text < 128) {
             stbtt_aligned_quad q;
-            stbtt_GetBakedQuad(font->glyphs, 512, 512, *text - 32, &xpos, &ypos,
+            stbtt_GetBakedQuad(font->glyphs, 512, 512, *text - 32, &x, &y,
                                &q, 1);
 
-            float vertices[6][4] = {
-                {q.x0, q.y0, q.s0, q.t0},
-                {q.x1, q.y0, q.s1, q.t0},
-                {q.x1, q.y1, q.s1, q.t1},
-
-                {q.x0, q.y0, q.s0, q.t0},
-                {q.x1, q.y1, q.s1, q.t1},
-                {q.x0, q.y1, q.s0, q.t1},
+            float vertices[] = {
+                q.x0, q.y0, q.s0, q.t0,
+                q.x1, q.y0, q.s1, q.t0,
+                q.x1, q.y1, q.s1, q.t1,
+                q.x0, q.y1, q.s0, q.t1,
             };
 
             glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         }
 
         ++text;
@@ -122,4 +101,9 @@ float text_width(const Font *font, const char *text) {
     }
 
     return width;
+}
+
+void destroy_font(Font *font) {
+    glDeleteTextures(1, &font->texture);
+    free(font->glyphs);
 }

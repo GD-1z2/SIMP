@@ -9,26 +9,21 @@ static void close(struct App *app, struct Element *button) {
 }
 
 static void live_fx(struct App *app) {
-    glUseProgram(app->shader_colorize);
+    SliderData *data = app->sidebar.children->children[0].data;
+
+    glUseProgram(app->shader_blur);
+    glUniform1i(glGetUniformLocation(app->shader_blur, "uSize"), data->value);
+
+    glUniform1i(glGetUniformLocation(app->shader_blur, "uTexture1"), 0);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, app->image.texture_front);
 
-    glUniform1i(glGetUniformLocation(app->shader_colorize, "uTexture1"), 0);
-
     mat4 projection;
     glm_ortho(0.f, (float)app->width, (float)app->height, 0.f, -1.f, 1.f,
               projection);
-    glUniformMatrix4fv(
-        glGetUniformLocation(app->shader_colorize, "uProjection"), 1, GL_FALSE,
-        (float *)projection);
-
-    Element *set = app->sidebar.children;
-    vec4 color = GLM_VEC4_ZERO_INIT;
-    for (int i = 0; i < 4; ++i)
-        color[i] = ((SliderData *)set->children[i].data)->value;
-    glUniform4fv(glGetUniformLocation(app->shader_colorize, "uColor"), 1,
-                 color);
+    glUniformMatrix4fv(glGetUniformLocation(app->shader_blur, "uProjection"), 1,
+                       GL_FALSE, (float *)projection);
 }
 
 static void apply(struct App *app, struct Element *button) {
@@ -38,26 +33,22 @@ static void apply(struct App *app, struct Element *button) {
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_BLEND);
 
-    glUseProgram(app->shader_colorize);
+    glUseProgram(app->shader_blur);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, app->image.texture_front);
 
-    glUniform1i(glGetUniformLocation(app->shader_colorize, "uTexture1"), 0);
+    glUniform1i(glGetUniformLocation(app->shader_blur, "uTexture1"), 0);
 
     mat4 projection;
     glm_ortho(0.0f, (float)app->image.width, 0.0f, (float)app->image.height,
               -1.0f, 1.0f, projection);
-    glUniformMatrix4fv(
-        glGetUniformLocation(app->shader_colorize, "uProjection"), 1, GL_FALSE,
-        (float *)projection);
+    glUniformMatrix4fv(glGetUniformLocation(app->shader_blur, "uProjection"), 1,
+                       GL_FALSE, (float *)projection);
 
     Element *set = app->sidebar.children;
-    vec4 color = GLM_VEC4_ZERO_INIT;
-    for (int i = 0; i < 4; ++i)
-        color[i] = ((SliderData *)set->children[i].data)->value;
-    glUniform4fv(glGetUniformLocation(app->shader_colorize, "uColor"), 1,
-                 color);
+    int size = ((SliderData *)set->children[0].data)->value;
+    glUniform1i(glGetUniformLocation(app->shader_blur, "uSize"), size);
 
     draw_rect(app, 0, 0, app->image.width, app->image.height);
 
@@ -69,28 +60,20 @@ static void apply(struct App *app, struct Element *button) {
     close(app, button);
 }
 
-static void update(struct App *app, Element *el) {}
-
 static void draw(const struct App *app) {
-    draw_separator(app, 0, MENU_HEIGHT + 13 * app->scale, SIDE_WIDTH,
-                   "Colorize");
+    draw_separator(app, 0, MENU_HEIGHT + 13 * app->scale, SIDE_WIDTH, "Blur");
 }
 
-static bool on_click(struct App *app, struct Element *el, int x, int y,
-                     int button, int action) {
-    return false;
-}
-
-void colorize_image(struct App *app) {
+void blur_image(struct App *app) {
     if (!check_image(app)) return;
     cancel_effect(app);
 
     SidebarData *data = malloc(sizeof(SidebarData));
     *data = (SidebarData){
         .data = NULL,
-        .update = update,
+        .update = NULL,
         .draw = draw,
-        .on_click = on_click,
+        .on_click = NULL,
     };
 
     app->sidebar.data = data;
@@ -100,10 +83,8 @@ void colorize_image(struct App *app) {
     element_init(set, SET, 0, MENU_HEIGHT, SIDE_WIDTH,
                  app->height - MENU_HEIGHT);
 
-    static const char *labels[] = {"R", "G", "B", "A"};
-
-    for (int i = 0; i < 4; i++)
-        slider_init(element_add_child(set, SLIDER), 1, 0, 2, 0, labels[i]);
+    Element *slider = element_add_child(set, SLIDER);
+    slider_init(slider, 1, 1, 100, 1, "Size");
 
     Element *cancel_button = element_add_child(set, BUTTON);
     button_init(cancel_button, "Cancel", close);

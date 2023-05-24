@@ -1,13 +1,31 @@
 #include "app.h"
 #include "effects.h"
-#include <cglm/mat4.h>
+#include "osdialog.h"
+
 #include <cglm/cam.h>
 
+void cancel_effect(struct App *app) {
+    app->live_fx = NULL;
+    if (app->sidebar.data) sidebar_rem_children(&app->sidebar);
+}
+
+bool check_image(const struct App *app) {
+    if (!app->image.valid) {
+        osdialog_message(OSDIALOG_ERROR, OSDIALOG_OK,
+                         "No image loaded. Please load an image first.");
+        return false;
+    }
+    return true;
+}
+
 void invert_image(struct App *app) {
+    if (!check_image(app)) return;
+
     glBindFramebuffer(GL_FRAMEBUFFER, app->image.framebuffer_back);
     glViewport(0, 0, app->image.width, app->image.height);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_BLEND);
 
     glUseProgram(app->shader_invert);
 
@@ -24,7 +42,8 @@ void invert_image(struct App *app) {
 
     draw_rect(app, 0, 0, app->image.width, app->image.height);
 
-    glUseProgram(app->shader_default);
+    glUseProgram(app->shader_ui);
+    glEnable(GL_BLEND);
 
     swap_image_buffers(&app->image);
 }

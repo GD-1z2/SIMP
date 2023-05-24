@@ -22,21 +22,24 @@ static void close_menu(Element *el, BarData *data);
 
 char *menu_bar_items[] = {"File", "Edit", "Effects", "View", NULL};
 
-char *file_menu_items[] = {"New", "Open", "Save", NULL};
-AppFn file_menu_callbacks[] = {NULL, NULL, NULL};
+char *file_menu_items[] = {"New", "Open", "Save", "Close", NULL};
+AppFn file_menu_callbacks[] = {show_create_new, show_open, show_save,
+                               close_image};
 
-char *edit_menu_items[] = {"Invert colors", NULL};
-AppFn edit_menu_callbacks[] = {invert_image};
+char *edit_menu_items[] = {"Flip horizontally", "Flip vertically",
+                           "Invert colors", "Scale", NULL};
+AppFn edit_menu_callbacks[] = {flip_image_h, flip_image_v, invert_image,
+                               scale_image};
 
-char *effect_menu_items[] = {"Colorize", NULL};
-AppFn effect_menu_callbacks[] = {colorize_image};
+char *effect_menu_items[] = {"Colorize", "Blur", NULL};
+AppFn effect_menu_callbacks[] = {colorize_image, blur_image};
 
 char *view_menu_items[] = {"Reset zoom", "Fit to screen", "Center image", NULL};
 AppFn view_menu_callbacks[] = {reset_zoom, fit_to_window, center_image};
 
-Element make_menu_bar(struct App *app) {
+Element menu_bar_create(struct App *app) {
     Element el = {0};
-    make_element(&el, MENUBAR, 0, 0, app->width, MENU_HEIGHT);
+    element_init(&el, MENUBAR, 0, 0, app->width, MENU_HEIGHT);
 
     BarData *data = calloc(1, sizeof(BarData));
     el.data = data;
@@ -137,6 +140,7 @@ static void close_menu(Element *el, BarData *data) {
     assert(el->children);
 
     destroy_element(el->children);
+    free(el->children);
     el->children = NULL;
     el->child_count = 0;
     data->open_item = -1;
@@ -149,7 +153,7 @@ open_menu(struct App *app, Element *el, BarData *data, char **items,
 
     Element *child = calloc(1, sizeof(Element));
     int x = data->items[data->selected_item].x;
-    make_element(child, MENU, x, MENU_HEIGHT, 200, 200);
+    element_init(child, MENU, x, MENU_HEIGHT, 200, 200);
     make_menu(app, child, items, callbacks);
 
     el->children = child;
@@ -157,8 +161,8 @@ open_menu(struct App *app, Element *el, BarData *data, char **items,
     data->open_item = data->selected_item;
 }
 
-bool bar_on_click(struct App *app, Element *el, int x, int y, int button,
-                  int action) {
+bool on_click_menu_bar(struct App *app, Element *el, int x, int y, int button,
+                       int action) {
     assert(el->type == MENUBAR);
     assert(el->data);
     BarData *data = el->data;

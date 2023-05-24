@@ -22,5 +22,12 @@ typedef struct {
     unsigned int shaders[FXS_COUNT];
 } EffectManager;
 
+void cancel_effect(struct App *app);
+bool check_image(const struct App *app);
+
+void flip_image_h(struct App *app);
+void flip_image_v(struct App *app);
 void invert_image(struct App *app);
+void scale_image(struct App *app);
 void colorize_image(struct App *app);
+void blur_image(struct App *app);

@@ -40,7 +40,7 @@ create_shader(GLenum shader_type, const char *file, GLuint *result) {
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
     char infoLog[length];
     glGetShaderInfoLog(shader, length, NULL, infoLog);
-    printf("Failed to compile shader_default:\n%s\n", infoLog);
+    printf("Failed to compile shader:\n%s\n", infoLog);
 
     return false;
 }
